@@ -127,15 +127,14 @@ const Dashboard = () => {
       </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass rounded-3xl p-8 h-96">
-          <TrendsChart 
-            data={chartData} 
-            dataKey="aqi" 
-            color="#10b981" 
-            title="AQI Status"
+        <div className="lg:col-span-2 h-[450px]">
+          <MapModule 
+            cities={cityData} 
+            onCitySelect={setSelectedCity} 
+            selectedCity={selectedCity} 
           />
         </div>
-        <div className="glass rounded-3xl p-8 h-96 flex flex-col">
+        <div className="glass rounded-3xl p-8 h-[450px] flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold flex items-center gap-2">
               <Bell size={18} className="text-primary" />
@@ -158,7 +157,31 @@ const Dashboard = () => {
                 <p className="text-sm font-medium">Current conditions: {currentData?.weather?.condition}.</p>
                 <p className="text-[10px] text-secondary">SYNCHRONIZED</p>
              </div>
+             <div className="p-4 rounded-2xl bg-accent bg-opacity-50 border border-opacity-5 space-y-1">
+                <p className="text-xs font-bold uppercase text-secondary">System Status</p>
+                <p className="text-sm font-medium">All IoT sensors operational and reporting.</p>
+                <p className="text-[10px] text-secondary">HEALTHY</p>
+             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass rounded-3xl p-8 h-80">
+          <TrendsChart 
+            data={chartData} 
+            dataKey="aqi" 
+            color="#10b981" 
+            title="AQI Status"
+          />
+        </div>
+        <div className="glass rounded-3xl p-8 h-80">
+          <TrendsChart 
+            data={chartData} 
+            dataKey="traffic" 
+            color="#3b82f6" 
+            title="Traffic Density"
+          />
         </div>
       </div>
     </div>
