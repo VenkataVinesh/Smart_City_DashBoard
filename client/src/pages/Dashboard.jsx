@@ -1,12 +1,66 @@
-import React, { useState } from 'react';
-import { Wind, Thermometer, Car, Zap, Bell } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Wind, Thermometer, Car, Zap, Bell, RefreshCcw } from 'lucide-react';
 import KPICard from '../components/KPICard';
-import { motion } from 'framer-motion';
+import TrendsChart from '../components/TrendsChart';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fetchLatestCityData, initSocket } from '../services/api';
 
 const Dashboard = () => {
   const [selectedCity, setSelectedCity] = useState('Mumbai');
+  const [cityData, setCityData] = useState({}); // { CityName: [LatestUpdates] }
+  const [loading, setLoading] = useState(true);
 
   const cities = ['Mumbai', 'Hyderabad', 'Bangalore', 'New Delhi', 'Kolkata', 'New York', 'London', 'Tokyo', 'Singapore'];
+
+  useEffect(() => {
+    // 1. Initial Fetch
+    fetchLatestCityData().then(data => {
+      const initialMap = {};
+      data.forEach(d => {
+        initialMap[d.cityName] = [d];
+      });
+      setCityData(initialMap);
+      setLoading(false);
+    });
+
+    // 2. Socket Connection
+    const socket = initSocket((updates) => {
+      setCityData(prev => {
+        const next = { ...prev };
+        updates.forEach(d => {
+          const history = next[d.cityName] || [];
+          // Keep last 10 updates for charts
+          next[d.cityName] = [...history, d].slice(-10);
+        });
+        return next;
+      });
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  const currentData = useMemo(() => {
+    const history = cityData[selectedCity] || [];
+    return history[history.length - 1] || null;
+  }, [cityData, selectedCity]);
+
+  const chartData = useMemo(() => {
+    const history = cityData[selectedCity] || [];
+    return history.map(h => ({
+      time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      aqi: h.aqi.index * 20, // Scale 1-5 to 0-100 for visual consistency
+      temp: h.weather.temp,
+      traffic: h.traffic.congestionLevel
+    }));
+  }, [cityData, selectedCity]);
+
+  if (loading) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <RefreshCcw className="animate-spin text-primary w-8 h-8" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -33,69 +87,76 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        <KPICard 
-          title="Air Quality Index" 
-          value="42" 
-          unit="AQI" 
-          icon={Wind} 
-          color="bg-green-500"
-          trend={-5}
-        />
-        <KPICard 
-          title="Temperature" 
-          value="28" 
-          unit="°C" 
-          icon={Thermometer} 
-          color="bg-orange-500"
-          trend={2}
-        />
-        <KPICard 
-          title="Traffic Congestion" 
-          value="34" 
-          unit="%" 
-          icon={Car} 
-          color="bg-blue-500"
-          trend={12}
-        />
-        <KPICard 
-          title="Energy Usage" 
-          value="842" 
-          unit="kWh" 
-          icon={Zap} 
-          color="bg-yellow-500"
-          trend={-3}
-        />
-      </motion.div>
+      <AnimatePresence mode="wait">
+        <motion.div 
+          key={selectedCity}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          <KPICard 
+            title="Air Quality Index" 
+            value={currentData?.aqi?.index || '--'} 
+            unit={currentData?.aqi?.description || ''} 
+            icon={Wind} 
+            color="bg-green-500"
+          />
+          <KPICard 
+            title="Temperature" 
+            value={currentData?.weather?.temp || '--'} 
+            unit="°C" 
+            icon={Thermometer} 
+            color="bg-orange-500"
+          />
+          <KPICard 
+            title="Traffic Congestion" 
+            value={currentData?.traffic?.congestionLevel || '--'} 
+            unit="%" 
+            icon={Car} 
+            color="bg-blue-500"
+          />
+          <KPICard 
+            title="Energy Usage" 
+            value={Math.floor(Math.random() * 200) + 700} 
+            unit="kWh" 
+            icon={Zap} 
+            color="bg-yellow-500"
+          />
+        </motion.div>
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass rounded-3xl p-8 h-80 flex items-center justify-center text-secondary">
-          Chart Placeholder (Coming in Commit 6)
+        <div className="lg:col-span-2 glass rounded-3xl p-8 h-96">
+          <TrendsChart 
+            data={chartData} 
+            dataKey="aqi" 
+            color="#10b981" 
+            title="AQI Status"
+          />
         </div>
-        <div className="glass rounded-3xl p-8 h-80 flex flex-col">
+        <div className="glass rounded-3xl p-8 h-96 flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold flex items-center gap-2">
               <Bell size={18} className="text-primary" />
               Active Alerts
             </h3>
             <span className="bg-primary bg-opacity-10 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase">
-              2 New
+              {currentData?.traffic?.congestionLevel > 50 ? '1 New' : 'No Alerts'}
             </span>
           </div>
           <div className="space-y-4 overflow-y-auto no-scrollbar">
-             <div className="p-4 rounded-2xl bg-accent bg-opacity-50 border border-opacity-5 space-y-1">
-                <p className="text-xs font-bold uppercase text-orange-500">Traffic Alert</p>
-                <p className="text-sm font-medium">High congestion detected on Western Express Highway.</p>
-                <p className="text-[10px] text-secondary">2 MINUTES AGO</p>
-             </div>
+             {currentData?.traffic?.congestionLevel > 50 && (
+               <div className="p-4 rounded-2xl bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-20 space-y-1">
+                  <p className="text-xs font-bold uppercase text-orange-500">Traffic Alert</p>
+                  <p className="text-sm font-medium">Heavy traffic detected in central {selectedCity}.</p>
+                  <p className="text-[10px] text-secondary">JUST NOW</p>
+               </div>
+             )}
              <div className="p-4 rounded-2xl bg-accent bg-opacity-50 border border-opacity-5 space-y-1">
                 <p className="text-xs font-bold uppercase text-primary">Weather Update</p>
-                <p className="text-sm font-medium">Sudden temperature drop expected in the next 2 hours.</p>
-                <p className="text-[10px] text-secondary">15 MINUTES AGO</p>
+                <p className="text-sm font-medium">Current conditions: {currentData?.weather?.condition}.</p>
+                <p className="text-[10px] text-secondary">SYNCHRONIZED</p>
              </div>
           </div>
         </div>
