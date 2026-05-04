@@ -2,18 +2,20 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Wind, Thermometer, Car, Zap, Bell, RefreshCcw } from 'lucide-react';
 import KPICard from '../components/KPICard';
 import TrendsChart from '../components/TrendsChart';
+import MapModule from '../components/MapModule';
+import AlertsPanel from '../components/AlertsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchLatestCityData, initSocket } from '../services/api';
 
 const Dashboard = () => {
   const [selectedCity, setSelectedCity] = useState('Mumbai');
-  const [cityData, setCityData] = useState({}); // { CityName: [LatestUpdates] }
+  const [cityData, setCityData] = useState({});
+  const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const cities = ['Mumbai', 'Hyderabad', 'Bangalore', 'New Delhi', 'Kolkata', 'New York', 'London', 'Tokyo', 'Singapore'];
 
   useEffect(() => {
-    // 1. Initial Fetch
     fetchLatestCityData().then(data => {
       const initialMap = {};
       data.forEach(d => {
@@ -23,17 +25,19 @@ const Dashboard = () => {
       setLoading(false);
     });
 
-    // 2. Socket Connection
     const socket = initSocket((updates) => {
       setCityData(prev => {
         const next = { ...prev };
         updates.forEach(d => {
           const history = next[d.cityName] || [];
-          // Keep last 10 updates for charts
           next[d.cityName] = [...history, d].slice(-10);
         });
         return next;
       });
+    });
+
+    socket.on('alert_notification', (newAlerts) => {
+      setAlerts(prev => [...newAlerts, ...prev].slice(0, 20));
     });
 
     return () => socket.disconnect();
@@ -136,51 +140,6 @@ const Dashboard = () => {
         </div>
         <div className="h-[450px]">
           <AlertsPanel alerts={alerts} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass rounded-3xl p-8 h-80">
-          <TrendsChart 
-            data={chartData} 
-            dataKey="aqi" 
-            color="#10b981" 
-            title="AQI Status"
-          />
-        </div>
-        <div className="glass rounded-3xl p-8 h-80">
-          <TrendsChart 
-            data={chartData} 
-            dataKey="traffic" 
-            color="#3b82f6" 
-            title="Traffic Density"
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Dashboard;
-      <div className="space-y-4 overflow-y-auto no-scrollbar">
-             {currentData?.traffic?.congestionLevel > 50 && (
-               <div className="p-4 rounded-2xl bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-20 space-y-1">
-                  <p className="text-xs font-bold uppercase text-orange-500">Traffic Alert</p>
-                  <p className="text-sm font-medium">Heavy traffic detected in central {selectedCity}.</p>
-                  <p className="text-[10px] text-secondary">JUST NOW</p>
-               </div>
-             )}
-             <div className="p-4 rounded-2xl bg-accent bg-opacity-50 border border-opacity-5 space-y-1">
-                <p className="text-xs font-bold uppercase text-primary">Weather Update</p>
-                <p className="text-sm font-medium">Current conditions: {currentData?.weather?.condition}.</p>
-                <p className="text-[10px] text-secondary">SYNCHRONIZED</p>
-             </div>
-             <div className="p-4 rounded-2xl bg-accent bg-opacity-50 border border-opacity-5 space-y-1">
-                <p className="text-xs font-bold uppercase text-secondary">System Status</p>
-                <p className="text-sm font-medium">All IoT sensors operational and reporting.</p>
-                <p className="text-[10px] text-secondary">HEALTHY</p>
-             </div>
-          </div>
         </div>
       </div>
 
