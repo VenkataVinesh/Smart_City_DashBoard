@@ -63,9 +63,10 @@ io.on('connection', (socket) => {
 // Background Data Fetching Loop (Every 10 seconds as requested)
 setInterval(async () => {
     console.log('Fetching fresh city data...');
-    const data = await fetchCityData();
-    if (data && data.length > 0) {
-        io.emit('city_update', data);
+    const result = await fetchCityData();
+    if (result) {
+        if (result.cityData.length > 0) io.emit('city_update', result.cityData);
+        if (result.alerts.length > 0) io.emit('alert_notification', result.alerts);
     }
 }, 10000);
 

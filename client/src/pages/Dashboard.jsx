@@ -134,17 +134,35 @@ const Dashboard = () => {
             selectedCity={selectedCity} 
           />
         </div>
-        <div className="glass rounded-3xl p-8 h-[450px] flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold flex items-center gap-2">
-              <Bell size={18} className="text-primary" />
-              Active Alerts
-            </h3>
-            <span className="bg-primary bg-opacity-10 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase">
-              {currentData?.traffic?.congestionLevel > 50 ? '1 New' : 'No Alerts'}
-            </span>
-          </div>
-          <div className="space-y-4 overflow-y-auto no-scrollbar">
+        <div className="h-[450px]">
+          <AlertsPanel alerts={alerts} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass rounded-3xl p-8 h-80">
+          <TrendsChart 
+            data={chartData} 
+            dataKey="aqi" 
+            color="#10b981" 
+            title="AQI Status"
+          />
+        </div>
+        <div className="glass rounded-3xl p-8 h-80">
+          <TrendsChart 
+            data={chartData} 
+            dataKey="traffic" 
+            color="#3b82f6" 
+            title="Traffic Density"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+      <div className="space-y-4 overflow-y-auto no-scrollbar">
              {currentData?.traffic?.congestionLevel > 50 && (
                <div className="p-4 rounded-2xl bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-20 space-y-1">
                   <p className="text-xs font-bold uppercase text-orange-500">Traffic Alert</p>

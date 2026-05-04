@@ -19,9 +19,9 @@ const fetchCityData = async () => {
 
   const results = await Promise.all(CITIES.map(async (city) => {
     try {
-      // 1. Fetch Weather & AQI (Simulated if keys missing for demo purposes)
-      let weatherData = { temp: 25, humidity: 60, condition: 'Clear', icon: '01d' };
-      let aqiData = { index: 2, description: 'Fair' };
+      // 1. Fetch Weather & AQI
+      let weatherData = { temp: 25 + Math.random() * 5, humidity: 60, condition: 'Clear', icon: '01d' };
+      let aqiData = { index: Math.floor(Math.random() * 3) + 1, description: 'Good' };
       
       if (WEATHER_API_KEY) {
         const weatherRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${WEATHER_API_KEY}&units=metric`);
@@ -39,10 +39,9 @@ const fetchCityData = async () => {
       }
 
       // 2. Fetch Traffic
-      let trafficLevel = Math.floor(Math.random() * 40) + 10; // Fallback
+      let trafficLevel = Math.floor(Math.random() * 60) + 10; 
       if (TOMTOM_API_KEY) {
         const trafficRes = await axios.get(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point=${city.lat},${city.lon}&key=${TOMTOM_API_KEY}`);
-        // Simplified traffic index calculation
         trafficLevel = Math.min(100, Math.max(0, 100 - (trafficRes.data.flowSegmentData.currentSpeed / trafficRes.data.flowSegmentData.freeFlowSpeed) * 100));
       }
 
@@ -58,17 +57,41 @@ const fetchCityData = async () => {
         timestamp: new Date()
       };
 
-      // Save to DB
       await CityData.create(cityUpdate);
       
-      return cityUpdate;
+      // 3. Detect Alerts
+      let alerts = [];
+      if (cityUpdate.aqi.index >= 4) {
+        alerts.push({
+          cityName: city.name,
+          type: 'AQI',
+          severity: 'HIGH',
+          message: `Poor air quality detected: ${cityUpdate.aqi.description}`,
+          timestamp: new Date()
+        });
+      }
+      if (cityUpdate.traffic.congestionLevel > 80) {
+        alerts.push({
+          cityName: city.name,
+          type: 'TRAFFIC',
+          severity: 'HIGH',
+          message: `Severe traffic congestion in ${city.name}.`,
+          timestamp: new Date()
+        });
+      }
+      
+      return { cityUpdate, alerts };
     } catch (error) {
       console.error(`Error fetching data for ${city.name}:`, error.message);
       return null;
     }
   }));
 
-  return results.filter(r => r !== null);
+  const filtered = results.filter(r => r !== null);
+  return {
+    cityData: filtered.map(f => f.cityUpdate),
+    alerts: filtered.flatMap(f => f.alerts)
+  };
 };
 
 module.exports = { fetchCityData };
