@@ -4,11 +4,11 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const { fetchCityData } = require('./services/dataFetcher');
 
 dotenv.config();
 
 // Connect to Database
-// Note: In a real production environment, ensure MONGODB_URI is set in .env
 if (process.env.MONGODB_URI) {
     connectDB();
 } else {
@@ -19,7 +19,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust for production
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
@@ -31,14 +31,43 @@ app.get('/', (req, res) => {
   res.send('Smart City Dashboard API is running...');
 });
 
+// City Data Route (Historical/Latest)
+app.get('/api/cities', async (req, res) => {
+    try {
+        const { CityData } = require('./models/CityData');
+        // Get latest record for each city
+        const cities = ['Mumbai', 'Hyderabad', 'Bangalore', 'New Delhi', 'Kolkata', 'New York', 'London', 'Tokyo', 'Singapore'];
+        const latestData = await Promise.all(cities.map(name => 
+            require('./models/CityData').findOne({ cityName: name }).sort({ timestamp: -1 })
+        ));
+        res.json(latestData.filter(d => d !== null));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Socket.io Connection
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
+  
+  // Send initial data immediately
+  fetchCityData().then(data => {
+      socket.emit('city_update', data);
+  });
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
 });
+
+// Background Data Fetching Loop (Every 10 seconds as requested)
+setInterval(async () => {
+    console.log('Fetching fresh city data...');
+    const data = await fetchCityData();
+    if (data && data.length > 0) {
+        io.emit('city_update', data);
+    }
+}, 10000);
 
 const PORT = process.env.PORT || 5000;
 
